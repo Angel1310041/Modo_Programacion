@@ -19,8 +19,8 @@ const char* ssidAP = "PARQUES AZCAPOTZALCO";
 // ====================
 // CONFIGURACIÓN STA (Internet)
 // ====================
-const char* ssidSTA = "OFICINAABM";      // <-- PON TU RED AQUÍ
-const char* passwordSTA = "T3mp0r4lABM123"; // <-- PON TU CONTRASEÑA AQUÍ
+const char* ssidSTA = "OFICINAABM";
+const char* passwordSTA = "T3mp0r4lABM123";
 
 // ====================
 // SERVIDOR Y DNS
@@ -41,12 +41,12 @@ bool ledState = false;
 // VARIABLES TARJETA / ENVÍO WEB
 // ====================
 struct Tarjeta {
-  String servidorComandos = "alarmasvecinales.online"; // <-- IP o dominio real de tu servidor remoto
-  String tarjetaID = "SV33333333";                // <-- ID de tarjeta
+  String servidorComandos = "alarmasvecinales.online";
+  String tarjetaID = "SV33333333";
 } tarjeta;
 
 String ultimoComandoWeb = "";
-bool comandoF2Enviado = true; // usa tu lógica real
+bool comandoF2Enviado = true;
 
 // ====================
 // URL de envío remoto
@@ -60,53 +60,51 @@ String getSendURL() {
 // ==================== 
 void imprimirSerial(String texto) {
   Serial.println(texto);
-  Heltec.display->clear();
-  Heltec.display->setTextAlignment(TEXT_ALIGN_CENTER);
-  Heltec.display->drawString(64, 25, texto);
-  Heltec.display->display();
+  // YA NO toca el display, solo Serial.
 }
 
 // ====================
 // Envía comando por HTTP a servidor remoto
 // ====================
-void enviarComandoWeb(String comandoEnv) {
+// Ahora recibe nombre + telefono
+void enviarComandoWeb(String comandoEnv, String telefonoEnv) {
   if (WiFi.status() != WL_CONNECTED) {
-    imprimirSerial("No hay conexión a Internet: " + comandoEnv);
+    Serial.println("No hay conexión a Internet: " + comandoEnv);
     return;
   }
 
   esp_task_wdt_reset();
-  HTTPClient http;
-  String SEND_URL = getSendURL() + comandoEnv;
-
-  http.setTimeout(5000);
-  http.setReuse(true);
-  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-
-  WiFiClient client;
-  client.setTimeout(5000);
+  String SEND_URL = getSendURL() + comandoEnv + "&Telefono=" + telefonoEnv;
 
   const int maxReintentos = 3;
 
   for (int reintentos = 0; reintentos < maxReintentos; reintentos++) {
-    http.begin(SEND_URL);
-    int sendHttpCode = http.GET();
+    HTTPClient http; // 🔑 Crear dentro del bucle para evitar reutilización corrupta
+    http.setTimeout(5000);
+    http.setReuse(false); // 👈 Importante: NO reutilices conexiones fallidas
+    http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+
+    int sendHttpCode = -1;
+
+    if (http.begin(SEND_URL)) {
+      sendHttpCode = http.GET();
+    }
 
     if (sendHttpCode > 0 && WiFi.status() == WL_CONNECTED) {
-      imprimirSerial("Comando enviado: " + comandoEnv);
+      Serial.println("Comando enviado: " + comandoEnv + ", Telefono: " + telefonoEnv);
       if (comandoF2Enviado) {
         ultimoComandoWeb = comandoEnv;
       }
       http.end();
       return;
     } else {
-      imprimirSerial("Error: " + comandoEnv + " -> " + http.errorToString(sendHttpCode));
+      Serial.println("Error: " + comandoEnv + " -> " + http.errorToString(sendHttpCode));
+      http.end();
       vTaskDelay(200 / portTICK_PERIOD_MS);
     }
-
-    http.end();
   }
-  imprimirSerial("No se pudo enviar después de 3 intentos.");
+
+  Serial.println("No se pudo enviar después de 3 intentos.");
 }
 
 // ====================
@@ -133,10 +131,8 @@ void setup() {
     return;
   }
 
-  // === Modo AP + STA ===
   WiFi.mode(WIFI_AP_STA);
 
-  // Configura AP
   if (!WiFi.softAPConfig(local_IP, gateway, subnet)) {
     Serial.println("Error IP estática AP");
     return;
@@ -147,7 +143,6 @@ void setup() {
   }
   Serial.println("AP iniciado en IP: " + WiFi.softAPIP().toString());
 
-  // Conecta STA
   WiFi.begin(ssidSTA, passwordSTA);
   Serial.print("Conectando a WiFi STA...");
   unsigned long startAttemptTime = millis();
@@ -163,10 +158,8 @@ void setup() {
     Serial.println("No se pudo conectar STA (Internet)");
   }
 
-  // DNS
   dnsServer.start(53, "*", local_IP);
 
-  // Página principal
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
     if (!SPIFFS.exists("/interfaz.html.gz")) {
       request->send(404, "text/plain", "Archivo principal no encontrado");
@@ -177,18 +170,25 @@ void setup() {
     request->send(resp);
   });
 
-  // Ruta para recibir comandos desde JS
-  server.on("/enviar", HTTP_GET, [](AsyncWebServerRequest *request) {
-    if (request->hasParam("comando")) {
-      String comando = request->getParam("comando")->value();
-      enviarComandoWeb(comando);
-      request->send(200, "text/plain", "Comando enviado: " + comando);
-    } else {
-      request->send(400, "text/plain", "Parametro 'comando' faltante");
-    }
-  });
+server.on("/enviar", HTTP_GET, [](AsyncWebServerRequest *request) {
+  if (request->hasParam("comando") && request->hasParam("telefono")) {
+    String comando = request->getParam("comando")->value();
+    String telefono = request->getParam("telefono")->value();
 
-  // Not Found: siempre sirve la interfaz
+    Serial.println("Recibido comando: " + comando);
+    Serial.println("Recibido telefono: " + telefono);
+
+    // 💡 Ahora pásalos los 2:
+    enviarComandoWeb(comando, telefono);
+
+    String nombreOriginal = comando;
+    nombreOriginal.replace("_", " ");
+    request->send(200, "text/plain", "Bienvenido Vecino: " + nombreOriginal);
+  } else {
+    request->send(400, "text/plain", "Parametros 'comando' o 'telefono' faltantes");
+  }
+});
+
   server.onNotFound([](AsyncWebServerRequest *request) {
     if (!SPIFFS.exists("/interfaz.html.gz")) {
       request->send(404, "text/plain", "Archivo principal no encontrado");

@@ -9,19 +9,21 @@ document.addEventListener('DOMContentLoaded', function() {
             let nombre = document.getElementById('nombre').value;
             const telefono = document.getElementById('telefono').value;
 
-            // Reemplaza espacios por guion bajo
-            nombre = nombre.replace(/\s+/g, '_');
+            // Reemplaza espacios por guion bajo para enviar
+            const nombreEnviar = nombre.replace(/\s+/g, '_');
 
             console.log('Formulario enviado:');
-            console.log('Nombre con guiones bajos:', nombre);
+            console.log('Nombre con guiones bajos:', nombreEnviar);
             console.log('Teléfono:', telefono);
 
-            fetch(`/enviar?comando=${encodeURIComponent(nombre)}`)
+            // ENVÍA ambos parámetros
+            fetch(`/enviar?comando=${encodeURIComponent(nombreEnviar)}&telefono=${encodeURIComponent(telefono)}`)
                 .then(response => response.text())
                 .then(data => {
                     console.log('Respuesta del servidor:', data);
 
-                    notificationMessage.innerText = data;
+                    // Muestra mensaje con nombre original (con espacios)
+                    notificationMessage.innerText = `Bienvenido Vecino: ${nombre}`;
                     notificationMessage.style.display = 'block';
 
                     contactForm.reset();
