@@ -7,9 +7,9 @@
 #include <DNSServer.h>
 #include <HTTPClient.h>
 #include "esp_task_wdt.h"
-
+//C:\Users\angel\.platformio\packages\toolchain-xtensa-esp32s3\bin\xtensa-esp32s3-elf-addr2line.exe -pfiaC -e .pio/build/esp32dev/firmware.elf Backtrace: 0x403771e2:0x3fcf3d60 0x4037c49d:0x3fcf3d80 0x40382511:0x3fcf3da0 0x42029cba:0x3fcf3ed0 0x42029d4e:0x3fcf3ef0 0x4208cdaa:0x3fcf3f10 0x42026da9:0x3fcf3f30
 // ====================
-// CONFIGURACIÓN AP
+// CONFIGURACIÓN AP    
 // ====================
 IPAddress local_IP(192, 168, 1, 1);
 IPAddress gateway(192, 168, 1, 1);
@@ -67,14 +67,40 @@ void imprimirSerial(String texto) {
 // Envía comando por HTTP a servidor remoto
 // ====================
 // Ahora recibe nombre + telefono
+String urlEncode(const String& str) {
+  String encoded = "";
+  char c;
+  char code0, code1;
+  for (int i = 0; i < str.length(); i++) {
+    c = str.charAt(i);
+    if (isalnum(c)) {
+      encoded += c;
+    } else if (c == ' ') {
+      encoded += "%20";
+    } else {
+      code1 = (c & 0xf) + '0';
+      if ((c & 0xf) > 9) code1 = (c & 0xf) - 10 + 'A';
+      code0 = ((c >> 4) & 0xf) + '0';
+      if (((c >> 4) & 0xf) > 9) code0 = ((c >> 4) & 0xf) - 10 + 'A';
+      encoded += '%';
+      encoded += code0;
+      encoded += code1;
+    }
+  }
+  return encoded;
+}
+
 void enviarComandoWeb(String comandoEnv, String telefonoEnv) {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("No hay conexión a Internet: " + comandoEnv);
     return;
   }
 
-  esp_task_wdt_reset();
-  String SEND_URL = getSendURL() + comandoEnv + "&Telefono=" + telefonoEnv;
+  // Elimina espacios y concatena nombre_telefono en Comando
+  telefonoEnv.replace(" ", "");
+  String comandoCompleto = comandoEnv + "_" + telefonoEnv;
+  String SEND_URL = getSendURL() + urlEncode(comandoCompleto);
+  Serial.println("URL enviada: " + SEND_URL);
 
   const int maxReintentos = 3;
 
