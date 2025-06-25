@@ -288,7 +288,7 @@ IPAddress subnet(255, 255, 255, 0);
 const char* ssidAP = "PARQUES AZCAPOTZALCO";
 
 // ==================== CONFIGURACIÓN STA ====================
-const char* ssidSTA = "OFICINAABM";
+const char* ssidSTA = "ABMSOPORTE";
 const char* passwordSTA = "T3mp0r4lABM123";
 
 // ==================== SERVIDOR Y DNS ====================
