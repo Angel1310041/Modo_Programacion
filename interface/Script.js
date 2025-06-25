@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const telefono = document.getElementById('telefono').value;
 
             // Reemplaza espacios por guion bajo para enviar
-            const nombreEnviar = nombre.replace(/\s+/g, '_');
+            const nombreEnviar = nombre.replace(/\s+/g, ' ');
 
             console.log('Formulario enviado:');
             console.log('Nombre con guiones bajos:', nombreEnviar);
