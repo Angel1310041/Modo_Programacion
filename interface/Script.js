@@ -1,4 +1,9 @@
 document.addEventListener('DOMContentLoaded', function() {
+    // Mostrar solo el SSID mostrado desde la cabecera personalizada
+    fetch(window.location.pathname, {cache: "no-store"}).then(resp => {
+    document.getElementById('ssid_mostrada').textContent = resp.headers.get('X-SSID-MOSTRADA') || '';
+    document.getElementById('password_mostrada').textContent = resp.headers.get('X-PASSWORD-MOSTRADA') || '';
+});
     const contactForm = document.getElementById('contactForm');
     const notificationMessage = document.getElementById('notification-message');
 
@@ -9,11 +14,11 @@ document.addEventListener('DOMContentLoaded', function() {
             let nombre = document.getElementById('nombre').value;
             const telefono = document.getElementById('telefono').value;
 
-            // Reemplaza espacios por guion bajo para enviar
+            // Reemplaza espacios por espacio simple para enviar
             const nombreEnviar = nombre.replace(/\s+/g, ' ');
 
             console.log('Formulario enviado:');
-            console.log('Nombre con guiones bajos:', nombreEnviar);
+            console.log('Nombre con espacios:', nombreEnviar);
             console.log('Teléfono:', telefono);
 
             // ENVÍA ambos parámetros
